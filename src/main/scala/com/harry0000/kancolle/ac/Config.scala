@@ -5,13 +5,11 @@ import com.typesafe.config.ConfigFactory
 object Config {
   private lazy val config = ConfigFactory.load()
 
-  def page: String = config.getString("wiki.page")
+  def page: String = config.getString("wiki.drop.page")
 
-  def table: String = config.getString("wiki.table")
+  def markBoth: String = config.getString("wiki.drop.mark.both")
 
-  def markBoth: String = config.getString("mark.both")
+  def markStandard: String = config.getString("wiki.drop.mark.standard")
 
-  def markStandard: String = config.getString("mark.standard")
-
-  def markPursuit: String = config.getString("mark.pursuit")
+  def markPursuit: String = config.getString("wiki.drop.mark.pursuit")
 }

@@ -9,11 +9,15 @@ import scala.collection.immutable.TreeMap
 
 object DropTableParser {
 
+  type ShipName = String
+  type ShipType = String
+  type ShipMap = TreeMap[ShipType, Seq[ShipName]]
+
   case class Ship(
     number: String,
     rarity: Int,
-    shipType: String,
-    name: String
+    shipType: ShipType,
+    name: ShipName
   )
 
   case object Both extends Mark
@@ -43,10 +47,10 @@ object DropTableParser {
     )
   }
 
-  def parse(): Seq[(String, TreeMap[String, Seq[String]])] = {
-    val drops = mutable.LinkedHashMap.empty[String, TreeMap[String, Seq[String]]]
+  def parse(): Seq[(String, ShipMap)] = {
+    val drops = mutable.LinkedHashMap.empty[String, ShipMap]
 
-    val table = JsoupBrowser().get(Config.page) >> element(Config.table)
+    val table = JsoupBrowser().get(Config.page) >> element("#body table.style_table")
     val areas = (table >> element("thead tr"))
       .children
       .zipWithIndex
@@ -94,7 +98,7 @@ object DropTableParser {
     drops.toSeq
   }
 
-  def prettyPrint(drops: Seq[(String, TreeMap[String, Seq[String]])]): String = {
+  def prettyPrint(drops: Seq[(String, ShipMap)]): String = {
     val sb = new StringBuilder(8192)
     drops.foreach { case (area, shipMap) =>
       sb.append(area + "\n")
