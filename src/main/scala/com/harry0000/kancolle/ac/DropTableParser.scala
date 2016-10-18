@@ -42,15 +42,24 @@ object DropTableParser {
   }
 
   def main(args: Array[String]): Unit = {
+    implicit val browser = JsoupBrowser()
+
     println(
       prettyPrint(parse())
     )
   }
 
-  def parse(): Seq[(String, ShipMap)] = {
-    val drops = mutable.LinkedHashMap.empty[String, ShipMap]
+  def getCardOrder()(implicit browser: JsoupBrowser): Map[ShipName, Int] = {
+    (browser.get(Config.cardPage) >> elementList("#body table.style_table tr td"))
+      .map(_.text.stripPrefix("\n"))
+      .zipWithIndex
+      .toMap
+  }
 
-    val table = JsoupBrowser().get(Config.page) >> element("#body table.style_table")
+  def parse()(implicit browser: JsoupBrowser): Seq[(String, ShipMap)] = {
+    val drops = mutable.LinkedHashMap.empty[String, ShipMap]
+    val order = getCardOrder()
+    val table = browser.get(Config.dropPage) >> element("#body table.style_table")
     val areas = (table >> element("thead tr"))
       .children
       .zipWithIndex
@@ -62,7 +71,6 @@ object DropTableParser {
       }
 
     (table >> elementList("tbody tr"))
-      .view
       .flatMap { tr =>
         val tds = tr.children.toArray
         val ship = Ship(
@@ -84,8 +92,10 @@ object DropTableParser {
             case _ => Nil
           }
         }
+      }.sortBy { case (area, (shipType, name)) =>
+        order.getOrElse(name, Int.MaxValue)
       }.foreach { case (area, (shipType, name)) =>
-        val ships = drops.getOrElse(area, TreeMap.empty)
+        val ships = drops.getOrElse(area, TreeMap.empty[ShipType, Seq[ShipName]])
         drops.update(
           area,
           ships.updated(
