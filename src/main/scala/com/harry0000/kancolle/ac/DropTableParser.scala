@@ -27,9 +27,9 @@ object DropTableParser {
 
   sealed trait Mark
   object Mark {
-    lazy val both: String     = Config.markBoth
-    lazy val standard: String = Config.markStandard
-    lazy val pursuit: String  = Config.markPursuit
+    lazy val both     = Config.markBoth
+    lazy val standard = Config.markStandard
+    lazy val pursuit  = Config.markPursuit
 
     def apply(mark: String): Mark = {
       mark match {
