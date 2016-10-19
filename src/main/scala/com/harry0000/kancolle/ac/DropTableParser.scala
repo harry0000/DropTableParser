@@ -21,9 +21,9 @@ object DropTableParser {
   )
 
   case object Both extends Mark
-  case object Standard extends Mark
-  case object Pursuit extends Mark
   case object Empty extends Mark
+  case object Standard extends Mark with AreaType
+  case object Pursuit extends Mark with AreaType
 
   sealed trait Mark
   object Mark {
@@ -38,6 +38,18 @@ object DropTableParser {
         case `pursuit`  => Pursuit
         case _          => Empty
       }
+    }
+  }
+
+  trait AreaType
+
+  case class Area(
+    stage: String,
+    areaType: AreaType
+  ) {
+    def label: String = areaType match {
+      case Standard => s"$stage 通常"
+      case Pursuit  => s"$stage 追撃"
     }
   }
 
@@ -56,18 +68,18 @@ object DropTableParser {
       .toMap
   }
 
-  def parse()(implicit browser: JsoupBrowser): Seq[(String, ShipMap)] = {
-    val drops = mutable.LinkedHashMap.empty[String, ShipMap]
+  def parse()(implicit browser: JsoupBrowser): Seq[(Area, ShipMap)] = {
+    val drops = mutable.LinkedHashMap.empty[Area, ShipMap]
     val order = getCardOrder()
     val table = browser.get(Config.dropPage) >> element("#body table.style_table")
     val areas = (table >> element("thead tr"))
       .children
       .zipWithIndex
       .collect { case (e, idx) if e.text.matches("[0-9]-[0-9]") =>
-        val area = e.text
-        drops += (s"$area 通常" -> TreeMap.empty)
-        drops += (s"$area 追撃" -> TreeMap.empty)
-        (idx, area)
+        val stage = e.text
+        drops += (Area(stage, Standard) -> TreeMap.empty)
+        drops += (Area(stage, Pursuit)  -> TreeMap.empty)
+        (idx, stage)
       }
 
     (table >> elementList("tbody tr"))
@@ -80,15 +92,15 @@ object DropTableParser {
           (tds(3) >> element("a")).text
         )
 
-        areas.flatMap { case (i, area) =>
+        areas.flatMap { case (i, stage) =>
           Mark(tds(i).text) match {
             case Both => Seq(
-              s"$area 通常" -> (ship.shipType -> ship.name),
-              s"$area 追撃" -> (ship.shipType -> ship.name))
+              Area(stage, Standard) -> (ship.shipType -> ship.name),
+              Area(stage, Pursuit)  -> (ship.shipType -> ship.name))
             case Standard => Seq(
-              s"$area 通常" -> (ship.shipType -> ship.name))
+              Area(stage, Standard) -> (ship.shipType -> ship.name))
             case Pursuit => Seq(
-              s"$area 追撃" -> (ship.shipType -> ship.name))
+              Area(stage, Pursuit) -> (ship.shipType -> ship.name))
             case _ => Nil
           }
         }
@@ -108,10 +120,10 @@ object DropTableParser {
     drops.toSeq
   }
 
-  def prettyPrint(drops: Seq[(String, ShipMap)]): String = {
+  def prettyPrint(drops: Seq[(Area, ShipMap)]): String = {
     val sb = new StringBuilder(8192)
     drops.foreach { case (area, shipMap) =>
-      sb.append(area + "\n")
+      sb.append(area.label + "\n")
       shipMap.foreach { case (shipType, ships) =>
         sb.append(shipType + "\n")
           sb.append(ships.mkString(" ") + "\n")
