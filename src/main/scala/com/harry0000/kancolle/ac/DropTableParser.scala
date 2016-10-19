@@ -20,16 +20,16 @@ object DropTableParser {
     name: ShipName
   )
 
-  case object Both extends Mark
-  case object Empty extends Mark
-  case object Standard extends Mark with AreaType
-  case object Pursuit extends Mark with AreaType
-
   sealed trait Mark
   object Mark {
-    lazy val both     = Config.markBoth
-    lazy val standard = Config.markStandard
-    lazy val pursuit  = Config.markPursuit
+    case object Standard extends Mark
+    case object Pursuit extends Mark
+    case object Both extends Mark
+    case object Empty extends Mark
+
+    private lazy val both     = Config.markBoth
+    private lazy val standard = Config.markStandard
+    private lazy val pursuit  = Config.markPursuit
 
     def apply(mark: String): Mark = {
       mark match {
@@ -41,15 +41,14 @@ object DropTableParser {
     }
   }
 
-  trait AreaType
+  case class Standard(stage: String) extends Area
+  case class Pursuit(stage: String) extends Area
 
-  case class Area(
-    stage: String,
-    areaType: AreaType
-  ) {
-    def label: String = areaType match {
-      case Standard => s"$stage 通常"
-      case Pursuit  => s"$stage 追撃"
+  sealed trait Area {
+    def stage: String
+    def label: String = this match {
+      case _: Standard => s"$stage 通常"
+      case _: Pursuit  => s"$stage 追撃"
     }
   }
 
@@ -77,8 +76,8 @@ object DropTableParser {
       .zipWithIndex
       .collect { case (e, idx) if e.text.matches("[0-9]-[0-9]") =>
         val stage = e.text
-        drops += (Area(stage, Standard) -> TreeMap.empty)
-        drops += (Area(stage, Pursuit)  -> TreeMap.empty)
+        drops += (Standard(stage) -> TreeMap.empty)
+        drops += (Pursuit(stage)  -> TreeMap.empty)
         (idx, stage)
       }
 
@@ -94,13 +93,13 @@ object DropTableParser {
 
         areas.flatMap { case (i, stage) =>
           Mark(tds(i).text) match {
-            case Both => Seq(
-              Area(stage, Standard) -> (ship.shipType -> ship.name),
-              Area(stage, Pursuit)  -> (ship.shipType -> ship.name))
-            case Standard => Seq(
-              Area(stage, Standard) -> (ship.shipType -> ship.name))
-            case Pursuit => Seq(
-              Area(stage, Pursuit) -> (ship.shipType -> ship.name))
+            case Mark.Both => Seq(
+              Standard(stage) -> (ship.shipType -> ship.name),
+              Pursuit(stage)  -> (ship.shipType -> ship.name))
+            case Mark.Standard => Seq(
+              Standard(stage) -> (ship.shipType -> ship.name))
+            case Mark.Pursuit => Seq(
+              Pursuit(stage) -> (ship.shipType -> ship.name))
             case _ => Nil
           }
         }
