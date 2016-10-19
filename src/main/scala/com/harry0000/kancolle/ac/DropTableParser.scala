@@ -125,7 +125,7 @@ object DropTableParser {
       sb.append(area.label + "\n")
       shipMap.foreach { case (shipType, ships) =>
         sb.append(shipType + "\n")
-          sb.append(ships.mkString(" ") + "\n")
+        sb.append(ships.mkString(" ") + "\n")
       }
       sb.append("\n")
     }
