@@ -11,15 +11,51 @@ import scala.collection.{Map, Seq, mutable}
 object Parser {
 
   type ShipName = String
-  type ShipType = String
-  type ShipMap = Map[ShipType, Seq[ShipName]]
+  type ShipMap = Map[ShipCategory, Seq[ShipName]]
 
   case class Ship(
     number: String,
     rarity: Int,
-    shipType: ShipType,
+    category: ShipCategory,
     name: ShipName
   )
+
+  sealed abstract class ShipCategory(val label: String)
+  object ShipCategory {
+    case object Destroyer       extends ShipCategory("駆逐艦")
+    case object LightCruiser    extends ShipCategory("軽巡")
+    case object HeavyCruiser    extends ShipCategory("重巡")
+    case object SeaplaneTender  extends ShipCategory("水上機母艦")
+    case object AircraftCarrier extends ShipCategory("空母")
+    case object Submarine       extends ShipCategory("潜水艦")
+    case object Battleship      extends ShipCategory("戦艦")
+
+    private val order: Map[ShipCategory, Int] = Seq(
+      Destroyer,
+      LightCruiser,
+      HeavyCruiser,
+      SeaplaneTender,
+      AircraftCarrier,
+      Submarine,
+      Battleship
+    ).zipWithIndex
+      .toMap
+
+    implicit val ordering: Ordering[ShipCategory] = Ordering.by(order.getOrElse(_, Int.MaxValue))
+
+    def apply(shipType: String): ShipCategory = shipType match {
+      case "駆逐" => Destroyer
+      case "軽巡" => LightCruiser
+      case "重巡" => HeavyCruiser
+      case "水母" => SeaplaneTender
+      case "正母" => AircraftCarrier
+      case "軽母" => AircraftCarrier
+      case "潜水" => Submarine
+      case "戦艦" => Battleship
+    }
+
+    def get(index: Int): Option[ShipCategory] = order.find(_._2 == index).map(_._1)
+  }
 
   sealed trait Mark
   object Mark {
@@ -86,31 +122,31 @@ object Parser {
           val ship = Ship(
             tds(0).text,
             tds(1).text.toInt,
-            tds(2).text,
+            ShipCategory(tds(2).text),
             (tds(3) >> element("a")).text
           )
 
           areas.flatMap { case (i, stage) =>
             Mark(tds(i).text) match {
               case Mark.Both => Seq(
-                Standard(stage) -> (ship.shipType -> ship.name),
-                Pursuit(stage)  -> (ship.shipType -> ship.name))
+                Standard(stage) -> (ship.category -> ship.name),
+                Pursuit(stage)  -> (ship.category -> ship.name))
               case Mark.Standard => Seq(
-                Standard(stage) -> (ship.shipType -> ship.name))
+                Standard(stage) -> (ship.category -> ship.name))
               case Mark.Pursuit => Seq(
-                Pursuit(stage) -> (ship.shipType -> ship.name))
+                Pursuit(stage) -> (ship.category -> ship.name))
               case _ => Nil
             }
           }
-        }.sortBy { case (area, (shipType, name)) =>
+        }.sortBy { case (area, (category, name)) =>
           order.getOrElse(name, Int.MaxValue)
-        }.foreach { case (area, (shipType, name)) =>
-          val ships = drops.getOrElse(area, TreeMap.empty[ShipType, Seq[ShipName]])
+        }.foreach { case (area, (category, name)) =>
+          val ships = drops.getOrElse(area, TreeMap.empty[ShipCategory, Seq[ShipName]])
           drops.update(
             area,
             ships.updated(
-              shipType,
-              ships.getOrElse(shipType, Seq.empty) :+ name
+              category,
+              ships.getOrElse(category, Seq.empty) :+ name
             )
           )
         }

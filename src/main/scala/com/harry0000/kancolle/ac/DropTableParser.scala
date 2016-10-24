@@ -27,8 +27,8 @@ object DropTableParser extends LogSupport {
     val sb = new StringBuilder(8192)
     drops.foreach { case (area, shipMap) =>
       sb.append(area.label + "\n")
-      shipMap.foreach { case (shipType, ships) =>
-        sb.append(shipType + "\n")
+      shipMap.foreach { case (category, ships) =>
+        sb.append(category.label + "\n")
         sb.append(ships.mkString(" ") + "\n")
       }
       sb.append("\n")
