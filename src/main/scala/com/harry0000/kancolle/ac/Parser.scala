@@ -3,6 +3,7 @@ package com.harry0000.kancolle.ac
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
+import net.ruippeixotog.scalascraper.model.Document
 
 import scala.collection.immutable.TreeMap
 import scala.collection.{Map, Seq, mutable}
@@ -52,8 +53,8 @@ object Parser {
     }
   }
 
-  def getCardOrder()(implicit browser: JsoupBrowser): Either[String, Map[ShipName, Int]] = {
-    (browser.get(Config.cardPage) >?> elementList("#body table.style_table tr td"))
+  protected def getCardOrder(doc: Document): Either[String, Map[ShipName, Int]] = {
+    (doc >?> elementList("#body table.style_table tr td"))
       .filter(_.nonEmpty)
       .map { tds =>
         tds.map(_.text.stripPrefix("\n"))
@@ -62,8 +63,7 @@ object Parser {
       }.toRight("Could not find card table.")
   }
 
-  def getDropList(order: Map[ShipName, Int])(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
-    val doc = browser.get(Config.dropPage)
+  protected def getDropList(doc: Document, order: Map[ShipName, Int]): Either[String, Seq[(Area, ShipMap)]] = {
     for {
       table  <- (doc   >?> element("#body table.style_table")).toRight("Could not find drop table.").right
       header <- (table >?> element("thead tr")).toRight("Could not find drop table header.").right
@@ -121,8 +121,8 @@ object Parser {
 
   def parse()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
     for {
-      order <- getCardOrder().right
-      drops <- getDropList(order).right
+      order <- getCardOrder(browser.get(Config.cardPage)).right
+      drops <- getDropList(browser.get(Config.dropPage), order).right
     } yield drops
   }
 
