@@ -14,7 +14,7 @@ object DropTableParser extends LogSupport {
 
   type ShipName = String
   type ShipType = String
-  type ShipMap = TreeMap[ShipType, Seq[ShipName]]
+  type ShipMap = Map[ShipType, Seq[ShipName]]
 
   case class Ship(
     number: String,
