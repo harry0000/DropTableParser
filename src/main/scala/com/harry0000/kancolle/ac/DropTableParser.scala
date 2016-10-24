@@ -3,11 +3,14 @@ package com.harry0000.kancolle.ac
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
+import wvlet.log.{LogFormatter, LogSupport, Logger}
 
 import scala.collection._
 import scala.collection.immutable.TreeMap
 
-object DropTableParser {
+object DropTableParser extends LogSupport {
+  Logger.scheduleLogLevelScan
+  Logger.setDefaultFormatter(LogFormatter.AppLogFormatter)
 
   type ShipName = String
   type ShipType = String
@@ -55,68 +58,88 @@ object DropTableParser {
   def main(args: Array[String]): Unit = {
     implicit val browser = JsoupBrowser()
 
-    println(
-      prettyPrint(parse())
-    )
-  }
-
-  def getCardOrder()(implicit browser: JsoupBrowser): Map[ShipName, Int] = {
-    (browser.get(Config.cardPage) >> elementList("#body table.style_table tr td"))
-      .map(_.text.stripPrefix("\n"))
-      .zipWithIndex
-      .toMap
-  }
-
-  def parse()(implicit browser: JsoupBrowser): Seq[(Area, ShipMap)] = {
-    val drops = mutable.LinkedHashMap.empty[Area, ShipMap]
-    val order = getCardOrder()
-    val table = browser.get(Config.dropPage) >> element("#body table.style_table")
-    val areas = (table >> element("thead tr"))
-      .children
-      .zipWithIndex
-      .collect { case (e, idx) if e.text.matches("[0-9]-[0-9]") =>
-        val stage = e.text
-        drops += (Standard(stage) -> TreeMap.empty)
-        drops += (Pursuit(stage)  -> TreeMap.empty)
-        (idx, stage)
-      }
-
-    (table >> elementList("tbody tr"))
-      .flatMap { tr =>
-        val tds = tr.children.toArray
-        val ship = Ship(
-          tds(0).text,
-          tds(1).text.toInt,
-          tds(2).text,
-          (tds(3) >> element("a")).text
+    parse() match {
+      case Right(drops) =>
+        println(
+          prettyPrint(drops)
         )
+      case Left(e) =>
+        error(e)
+    }
+  }
 
-        areas.flatMap { case (i, stage) =>
-          Mark(tds(i).text) match {
-            case Mark.Both => Seq(
-              Standard(stage) -> (ship.shipType -> ship.name),
-              Pursuit(stage)  -> (ship.shipType -> ship.name))
-            case Mark.Standard => Seq(
-              Standard(stage) -> (ship.shipType -> ship.name))
-            case Mark.Pursuit => Seq(
-              Pursuit(stage) -> (ship.shipType -> ship.name))
-            case _ => Nil
-          }
+  def getCardOrder()(implicit browser: JsoupBrowser): Either[String, Map[ShipName, Int]] = {
+    (browser.get(Config.cardPage) >?> elementList("#body table.style_table tr td"))
+      .filter(_.nonEmpty)
+      .map { tds =>
+        tds.map(_.text.stripPrefix("\n"))
+           .zipWithIndex
+           .toMap
+      }.toRight("Could not find card table.")
+  }
+
+  def getDropList(order: Map[ShipName, Int])(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
+    val doc = browser.get(Config.dropPage)
+    for {
+      table  <- (doc   >?> element("#body table.style_table")).toRight("Could not find drop table.").right
+      header <- (table >?> element("thead tr")).toRight("Could not find drop table header.").right
+      rows   <- (table >?> elementList("tbody tr")).filter(_.nonEmpty).toRight("Could not find drop table rows.").right
+    } yield {
+      val drops = mutable.LinkedHashMap.empty[Area, ShipMap]
+      val areas = header
+        .children
+        .zipWithIndex
+        .collect { case (e, idx) if e.text.matches("[0-9]-[0-9]") =>
+          val stage = e.text
+          drops += (Standard(stage) -> TreeMap.empty)
+          drops += (Pursuit(stage)  -> TreeMap.empty)
+          (idx, stage)
         }
-      }.sortBy { case (area, (shipType, name)) =>
-        order.getOrElse(name, Int.MaxValue)
-      }.foreach { case (area, (shipType, name)) =>
-        val ships = drops.getOrElse(area, TreeMap.empty[ShipType, Seq[ShipName]])
-        drops.update(
-          area,
-          ships.updated(
-            shipType,
-            ships.getOrElse(shipType, Seq.empty) :+ name
-          )
-        )
-      }
 
-    drops.toSeq
+      rows
+        .flatMap { tr =>
+          val tds = tr.children.toArray
+          val ship = Ship(
+            tds(0).text,
+            tds(1).text.toInt,
+            tds(2).text,
+            (tds(3) >> element("a")).text
+          )
+
+          areas.flatMap { case (i, stage) =>
+            Mark(tds(i).text) match {
+              case Mark.Both => Seq(
+                Standard(stage) -> (ship.shipType -> ship.name),
+                Pursuit(stage)  -> (ship.shipType -> ship.name))
+              case Mark.Standard => Seq(
+                Standard(stage) -> (ship.shipType -> ship.name))
+              case Mark.Pursuit => Seq(
+                Pursuit(stage) -> (ship.shipType -> ship.name))
+              case _ => Nil
+            }
+          }
+        }.sortBy { case (area, (shipType, name)) =>
+          order.getOrElse(name, Int.MaxValue)
+        }.foreach { case (area, (shipType, name)) =>
+          val ships = drops.getOrElse(area, TreeMap.empty[ShipType, Seq[ShipName]])
+          drops.update(
+            area,
+            ships.updated(
+              shipType,
+              ships.getOrElse(shipType, Seq.empty) :+ name
+            )
+          )
+        }
+
+      drops.toSeq
+    }
+  }
+
+  def parse()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
+    for {
+      order <- getCardOrder().right
+      drops <- getDropList(order).right
+    } yield drops
   }
 
   def prettyPrint(drops: Seq[(Area, ShipMap)]): String = {
