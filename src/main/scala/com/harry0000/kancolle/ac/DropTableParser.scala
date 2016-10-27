@@ -12,7 +12,7 @@ object DropTableParser extends LogSupport {
   def main(args: Array[String]): Unit = {
     implicit val browser = JsoupBrowser()
 
-    DropListScraper.scrape() match {
+    DropListByCardScraper.scrape() match {
       case Right(drops) =>
         println(
           prettyPrint(drops)

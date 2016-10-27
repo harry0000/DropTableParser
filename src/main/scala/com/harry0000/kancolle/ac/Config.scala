@@ -5,13 +5,15 @@ import com.typesafe.config.ConfigFactory
 object Config {
   private lazy val config = ConfigFactory.load()
 
-  def dropPage: String = config.getString("wiki.drop.page")
+  def dropListByAreaPage: String = config.getString("wiki.drop.area.page")
 
-  def cardPage: String = config.getString("wiki.card.page")
+  def dropListByCardPage: String = config.getString("wiki.drop.card.page")
 
-  def markBoth: String = config.getString("wiki.drop.mark.both")
+  def cardListPage: String = config.getString("wiki.card.type.page")
 
-  def markStandard: String = config.getString("wiki.drop.mark.standard")
+  def markBoth: String = config.getString("wiki.drop.card.mark.both")
 
-  def markPursuit: String = config.getString("wiki.drop.mark.pursuit")
+  def markStandard: String = config.getString("wiki.drop.card.mark.standard")
+
+  def markPursuit: String = config.getString("wiki.drop.card.mark.pursuit")
 }

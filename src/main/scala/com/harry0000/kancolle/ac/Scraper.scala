@@ -3,7 +3,7 @@ package com.harry0000.kancolle.ac
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
-import net.ruippeixotog.scalascraper.model.Document
+import net.ruippeixotog.scalascraper.model.{Document, Element}
 
 import scala.collection.immutable.TreeMap
 import scala.collection.{Map, Seq, mutable}
@@ -90,12 +90,12 @@ trait Scraper {
   def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]]
 }
 
-object DropListScraper extends Scraper {
+object DropListByCardScraper extends Scraper {
 
   def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
     for {
-      order <- getCardOrder(browser.get(Config.cardPage)).right
-      drops <- getDropList(browser.get(Config.dropPage), order).right
+      order <- getCardOrder(browser.get(Config.cardListPage)).right
+      drops <- getDropList(browser.get(Config.dropListByCardPage), order).right
     } yield drops
   }
 
@@ -162,6 +162,42 @@ object DropListScraper extends Scraper {
         }
 
       drops.toSeq
+    }
+  }
+
+}
+
+object DropListByAreaScraper extends Scraper {
+
+  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
+    getDropList(browser.get(Config.dropListByAreaPage))
+  }
+
+  protected def getDropList(doc: Document): Either[String, Seq[(Area, ShipMap)]] = {
+    def parse(tds: Iterable[Element]): ShipMap = {
+      tds
+        .zipWithIndex
+        .flatMap { case (td, i) =>
+          (ShipCategory.get(i), td.text) match {
+            case (Some(shipType), ships) if ships.nonEmpty => Some(shipType -> ships.split("\\s").toSeq)
+            case _ => None
+          }
+        }.toMap
+    }
+
+    for {
+      tables <- (doc >?> elementList("#body table.style_table")).filter(_.nonEmpty).toRight("Could not find drop table by area.").right
+    } yield {
+      tables.flatMap { table =>
+        val rows = (table >> elementList("tbody tr")).toArray
+        val standard = rows(0) >> elementList("td")
+        val pursuit  = rows(1) >> elementList("td")
+        val stage = standard.head.text.take(3)
+        Seq(
+          Standard(stage) -> parse(standard.drop(2)),
+          Pursuit(stage)  -> parse(pursuit.drop(1))
+        )
+      }
     }
   }
 
