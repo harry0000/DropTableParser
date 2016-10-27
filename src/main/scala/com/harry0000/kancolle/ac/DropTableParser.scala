@@ -1,6 +1,5 @@
 package com.harry0000.kancolle.ac
 
-import com.harry0000.kancolle.ac.Parser.{Area, ShipMap}
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import wvlet.log.{LogFormatter, LogSupport, Logger}
 
@@ -13,7 +12,7 @@ object DropTableParser extends LogSupport {
   def main(args: Array[String]): Unit = {
     implicit val browser = JsoupBrowser()
 
-    Parser.parse() match {
+    DropListScraper.scrape() match {
       case Right(drops) =>
         println(
           prettyPrint(drops)
@@ -23,7 +22,7 @@ object DropTableParser extends LogSupport {
     }
   }
 
-  def prettyPrint(drops: Seq[(Area, ShipMap)]): String = {
+  def prettyPrint(drops: Seq[(Area, Map[ShipCategory, Seq[String]])]): String = {
     val sb = new StringBuilder(8192)
     drops.foreach { case (area, shipMap) =>
       sb.append(area.label + "\n")
