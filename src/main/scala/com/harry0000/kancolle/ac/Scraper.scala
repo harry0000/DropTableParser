@@ -15,7 +15,7 @@ case class Ship(
   name: String
 )
 
-sealed abstract class ShipCategory(val label: String)
+sealed abstract class ShipCategory(val name: String)
 object ShipCategory {
   case object Destroyer       extends ShipCategory("駆逐艦")
   case object LightCruiser    extends ShipCategory("軽巡")
@@ -78,9 +78,9 @@ case class Pursuit(stage: String) extends Area
 
 sealed trait Area {
   def stage: String
-  def label: String = this match {
-    case _: Standard => s"$stage 通常"
-    case _: Pursuit  => s"$stage 追撃"
+  def areaType: String = this match {
+    case _: Standard => "通常"
+    case _: Pursuit  => "追撃"
   }
 }
 

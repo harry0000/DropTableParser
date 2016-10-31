@@ -25,9 +25,9 @@ object DropTableParser extends LogSupport {
   def prettyPrint(drops: Seq[(Area, Map[ShipCategory, Seq[String]])]): String = {
     val sb = new StringBuilder(8192)
     drops.foreach { case (area, shipMap) =>
-      sb.append(area.label + "\n")
+      sb.append(s"${area.stage} ${area.areaType}\n")
       shipMap.foreach { case (category, ships) =>
-        sb.append(category.label + "\n")
+        sb.append(category.name + "\n")
         sb.append(ships.mkString(" ") + "\n")
       }
       sb.append("\n")
