@@ -99,8 +99,8 @@ object DropListByCardScraper extends Scraper {
 
   def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]] = {
     for {
-      order <- getCardOrder(browser.get(Config.cardListPage)).right
-      drops <- getDropList(browser.get(Config.dropListByCardPage), order).right
+      order <- getCardOrder(browser.get(Config.cardsPage)).right
+      drops <- getDropList(browser.get(Config.dropsByCardPage), order).right
     } yield drops
   }
 
@@ -177,7 +177,7 @@ object DropListByCardScraper extends Scraper {
 object DropListByAreaScraper extends Scraper {
 
   def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]] = {
-    getDropList(browser.get(Config.dropListByAreaPage))
+    getDropList(browser.get(Config.dropsByAreaPage))
   }
 
   protected def getDropList(doc: Document): Either[String, Seq[ShipDrops]] = {
