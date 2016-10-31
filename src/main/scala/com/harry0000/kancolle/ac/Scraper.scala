@@ -1,5 +1,6 @@
 package com.harry0000.kancolle.ac
 
+import com.harry0000.kancolle.ac.Scraper._
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
@@ -25,7 +26,7 @@ object ShipCategory {
   case object Submarine       extends ShipCategory("潜水艦")
   case object Battleship      extends ShipCategory("戦艦")
 
-  private val order: Map[ShipCategory, Int] = Seq(
+  private val order: Map[ShipCategory, Int] = mutable.LinkedHashMap.empty ++ Seq(
     Destroyer,
     LightCruiser,
     HeavyCruiser,
@@ -34,7 +35,6 @@ object ShipCategory {
     Submarine,
     Battleship
   ).zipWithIndex
-    .toMap
 
   implicit val ordering: Ordering[ShipCategory] = Ordering.by(order.getOrElse(_, Int.MaxValue))
 
@@ -50,6 +50,8 @@ object ShipCategory {
   }
 
   def get(index: Int): Option[ShipCategory] = order.find(_._2 == index).map(_._1)
+
+  def values: Seq[ShipCategory] = order.keys.toSeq
 }
 
 sealed trait Mark
@@ -85,14 +87,17 @@ sealed trait Area {
 }
 
 trait Scraper {
+  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]]
+}
+object Scraper {
   type ShipName = String
   type ShipMap = Map[ShipCategory, Seq[ShipName]]
-  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]]
+  case class ShipDrops(area: Area, shipMap: ShipMap)
 }
 
 object DropListByCardScraper extends Scraper {
 
-  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
+  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]] = {
     for {
       order <- getCardOrder(browser.get(Config.cardListPage)).right
       drops <- getDropList(browser.get(Config.dropListByCardPage), order).right
@@ -104,12 +109,12 @@ object DropListByCardScraper extends Scraper {
       .filter(_.nonEmpty)
       .map { tds =>
         tds.map(_.text.stripPrefix("\n"))
-           .zipWithIndex
-           .toMap
+          .zipWithIndex
+          .toMap
       }.toRight("Could not find card table.")
   }
 
-  protected def getDropList(doc: Document, order: Map[ShipName, Int]): Either[String, Seq[(Area, ShipMap)]] = {
+  protected def getDropList(doc: Document, order: Map[ShipName, Int]): Either[String, Seq[ShipDrops]] = {
     for {
       table  <- (doc   >?> element("#body table.style_table")).toRight("Could not find drop table.").right
       header <- (table >?> element("thead tr")).toRight("Could not find drop table header.").right
@@ -161,7 +166,9 @@ object DropListByCardScraper extends Scraper {
           )
         }
 
-      drops.toSeq
+      drops
+        .map { case (area, shipMap) => ShipDrops(area, shipMap) }
+        .toSeq
     }
   }
 
@@ -169,11 +176,11 @@ object DropListByCardScraper extends Scraper {
 
 object DropListByAreaScraper extends Scraper {
 
-  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[(Area, ShipMap)]] = {
+  def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]] = {
     getDropList(browser.get(Config.dropListByAreaPage))
   }
 
-  protected def getDropList(doc: Document): Either[String, Seq[(Area, ShipMap)]] = {
+  protected def getDropList(doc: Document): Either[String, Seq[ShipDrops]] = {
     def parse(tds: Iterable[Element]): ShipMap = {
       tds
         .zipWithIndex
@@ -194,8 +201,8 @@ object DropListByAreaScraper extends Scraper {
         val pursuit  = rows(1) >> elementList("td")
         val stage = standard.head.text.take(3)
         Seq(
-          Standard(stage) -> parse(standard.drop(2)),
-          Pursuit(stage)  -> parse(pursuit.drop(1))
+          ShipDrops(Standard(stage), parse(standard.drop(2))),
+          ShipDrops(Pursuit(stage),  parse(pursuit.drop(1)))
         )
       }
     }

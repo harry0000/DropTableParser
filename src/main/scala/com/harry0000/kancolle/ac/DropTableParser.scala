@@ -1,5 +1,6 @@
 package com.harry0000.kancolle.ac
 
+import com.harry0000.kancolle.ac.Scraper.ShipDrops
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import wvlet.log.{LogFormatter, LogSupport, Logger}
 
@@ -22,11 +23,11 @@ object DropTableParser extends LogSupport {
     }
   }
 
-  def prettyPrint(drops: Seq[(Area, Map[ShipCategory, Seq[String]])]): String = {
+  def prettyPrint(drops: Seq[ShipDrops]): String = {
     val sb = new StringBuilder(8192)
-    drops.foreach { case (area, shipMap) =>
-      sb.append(s"${area.stage} ${area.areaType}\n")
-      shipMap.foreach { case (category, ships) =>
+    drops.foreach { drop =>
+      sb.append(s"${drop.area.stage} ${drop.area.areaType}\n")
+      drop.shipMap.foreach { case (category, ships) =>
         sb.append(category.name + "\n")
         sb.append(ships.mkString(" ") + "\n")
       }
