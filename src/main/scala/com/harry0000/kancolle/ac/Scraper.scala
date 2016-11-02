@@ -8,6 +8,7 @@ import net.ruippeixotog.scalascraper.model.{Document, Element}
 
 import scala.collection.immutable.TreeMap
 import scala.collection.{Map, Seq, mutable}
+import scala.util.{Failure, Success, Try}
 
 case class Ship(
   number: String,
@@ -91,7 +92,11 @@ trait Scraper {
 }
 object Scraper {
   type ShipName = String
-  type ShipMap = Map[ShipCategory, Seq[ShipName]]
+  type ShipMap = TreeMap[ShipCategory, Seq[ShipName]]
+  object ShipMap {
+    def empty: ShipMap = TreeMap.empty[ShipCategory, Seq[ShipName]]
+    def apply(value: (ShipCategory, Seq[ShipName]) *): ShipMap = TreeMap(value: _*)
+  }
   case class ShipDrops(area: Area, shipMap: ShipMap)
 }
 
@@ -126,37 +131,42 @@ object DropListByCardScraper extends Scraper {
         .zipWithIndex
         .collect { case (e, idx) if e.text.matches("[0-9]-[0-9]") =>
           val stage = e.text
-          drops += (Standard(stage) -> TreeMap.empty)
-          drops += (Pursuit(stage)  -> TreeMap.empty)
+          drops += (Standard(stage) -> ShipMap.empty)
+          drops += (Pursuit(stage)  -> ShipMap.empty)
           (idx, stage)
         }
 
       rows
         .flatMap { tr =>
           val tds = tr.children.toArray
-          val ship = Ship(
-            tds(0).text,
-            tds(1).text.toInt,
-            ShipCategory(tds(2).text),
-            (tds(3) >> element("a")).text
-          )
-
-          areas.flatMap { case (i, stage) =>
-            Mark(tds(i).text) match {
-              case Mark.Both => Seq(
-                Standard(stage) -> (ship.category -> ship.name),
-                Pursuit(stage)  -> (ship.category -> ship.name))
-              case Mark.Standard => Seq(
-                Standard(stage) -> (ship.category -> ship.name))
-              case Mark.Pursuit => Seq(
-                Pursuit(stage) -> (ship.category -> ship.name))
-              case _ => Nil
-            }
+          (for {
+            number   <- Try(tds(0).text)
+            rarity   <- Try(tds(1).text.toInt)
+            category <- Try(ShipCategory(tds(2).text))
+            name     <- Try((tds(3) >> element("a")).text)
+          } yield
+            Ship(number, rarity, category, name)
+          ) match {
+            case Failure(t) =>
+              return Left(t.toString)
+            case Success(ship) =>
+              areas.flatMap { case (i, stage) =>
+                Mark(tds(i).text) match {
+                  case Mark.Both => Seq(
+                    Standard(stage) -> (ship.category -> ship.name),
+                    Pursuit(stage)  -> (ship.category -> ship.name))
+                  case Mark.Standard => Seq(
+                    Standard(stage) -> (ship.category -> ship.name))
+                  case Mark.Pursuit => Seq(
+                    Pursuit(stage) -> (ship.category -> ship.name))
+                  case _ => Nil
+                }
+              }
           }
         }.sortBy { case (area, (category, name)) =>
           order.getOrElse(name, Int.MaxValue)
         }.foreach { case (area, (category, name)) =>
-          val ships = drops.getOrElse(area, TreeMap.empty[ShipCategory, Seq[ShipName]])
+          val ships = drops.getOrElse(area, ShipMap.empty)
           drops.update(
             area,
             ships.updated(
@@ -186,10 +196,10 @@ object DropListByAreaScraper extends Scraper {
         .zipWithIndex
         .flatMap { case (td, i) =>
           (ShipCategory.get(i), td.text) match {
-            case (Some(shipType), ships) if ships.nonEmpty => Some(shipType -> ships.split("\\s").toSeq)
+            case (Some(category), ships) if ships.nonEmpty => Some(category -> ships.split("\\s").toSeq)
             case _ => None
           }
-        }.toMap
+        } ++: ShipMap.empty
     }
 
     for {
