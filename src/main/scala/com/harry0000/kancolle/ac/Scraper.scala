@@ -79,11 +79,22 @@ object Mark {
 case class Standard(stage: String) extends Area
 case class Pursuit(stage: String) extends Area
 
-sealed trait Area {
+sealed trait Area extends Ordered[Area] {
   def stage: String
   def areaType: String = this match {
     case _: Standard => "通常"
     case _: Pursuit  => "追撃"
+  }
+
+  override def compare(that: Area): Int = {
+    this.stage compare that.stage match {
+      case 0 => (this, that) match {
+        case (_: Standard, _: Pursuit)  => -1
+        case (_: Pursuit,  _: Standard) =>  1
+        case _ => 0
+      }
+      case c => c
+    }
   }
 }
 
