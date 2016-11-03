@@ -34,7 +34,7 @@ object DropTableParser extends LogSupport {
             (ships1.get(c), ships2.get(c)) match {
               case (Some(names1), None        ) => Some(c -> names1)
               case (None,         Some(names2)) => Some(c -> names2)
-              case (Some(names1), Some(names2)) => Option(names1 diff names2).filter(_.nonEmpty).map(c -> _)
+              case (Some(names1), Some(names2)) => Some(names1 diff names2).filter(_.nonEmpty).map(c -> _)
               case _ => None
             }
           } match {
