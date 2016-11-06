@@ -5,6 +5,7 @@ import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import net.ruippeixotog.scalascraper.model.{Document, Element}
+import wvlet.log.LogSupport
 
 import scala.collection.immutable.TreeMap
 import scala.collection.{Map, Seq, mutable}
@@ -61,6 +62,7 @@ object Mark {
   case object Pursuit extends Mark
   case object Both extends Mark
   case object Empty extends Mark
+  case class Unknown(mark: String) extends Mark
 
   private lazy val both     = Config.markBoth
   private lazy val standard = Config.markStandard
@@ -71,7 +73,8 @@ object Mark {
       case `both`     => Both
       case `standard` => Standard
       case `pursuit`  => Pursuit
-      case _          => Empty
+      case ""         => Empty
+      case _          => Unknown(mark)
     }
   }
 }
@@ -111,7 +114,7 @@ object Scraper {
   case class ShipDrops(area: Area, shipMap: ShipMap)
 }
 
-object DropListByCardScraper extends Scraper {
+object DropListByCardScraper extends Scraper with LogSupport {
 
   def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]] = {
     for {
@@ -170,7 +173,11 @@ object DropListByCardScraper extends Scraper {
                     Standard(stage) -> (ship.category -> ship.name))
                   case Mark.Pursuit => Seq(
                     Pursuit(stage) -> (ship.category -> ship.name))
-                  case _ => Nil
+                  case Mark.Unknown(mark) =>
+                    warn(s"Unknown mark found. ship number: ${ship.number}, ship name: ${ship.name}, area: $stage")
+                    Nil
+                  case Mark.Empty =>
+                    Nil
                 }
               }
           }
