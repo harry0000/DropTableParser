@@ -1,7 +1,5 @@
 package com.harry0000.kancolle.ac
 
-import com.harry0000.kancolle.ac.Scraper._
-
 object Printer {
 
   private val buffer = 8192

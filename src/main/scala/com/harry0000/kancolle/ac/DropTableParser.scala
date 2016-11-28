@@ -1,6 +1,5 @@
 package com.harry0000.kancolle.ac
 
-import com.harry0000.kancolle.ac.Scraper.{ShipDrops, ShipMap}
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import wvlet.log.{LogFormatter, LogSupport, Logger}
 

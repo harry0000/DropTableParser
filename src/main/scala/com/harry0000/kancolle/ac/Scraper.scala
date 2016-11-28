@@ -1,13 +1,11 @@
 package com.harry0000.kancolle.ac
 
-import com.harry0000.kancolle.ac.Scraper._
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import net.ruippeixotog.scalascraper.model.{Document, Element}
 import wvlet.log.LogSupport
 
-import scala.collection.immutable.TreeMap
 import scala.collection.{Map, Seq, mutable}
 import scala.util.{Failure, Success, Try}
 
@@ -18,43 +16,10 @@ case class Ship(
   name: String
 )
 
-sealed abstract class ShipCategory(val name: String)
-object ShipCategory {
-  case object Destroyer       extends ShipCategory("駆逐艦")
-  case object LightCruiser    extends ShipCategory("軽巡")
-  case object HeavyCruiser    extends ShipCategory("重巡")
-  case object SeaplaneTender  extends ShipCategory("水上機母艦")
-  case object AircraftCarrier extends ShipCategory("空母")
-  case object Submarine       extends ShipCategory("潜水艦")
-  case object Battleship      extends ShipCategory("戦艦")
-
-  private val order: Map[ShipCategory, Int] = mutable.LinkedHashMap.empty ++ Seq(
-    Destroyer,
-    LightCruiser,
-    HeavyCruiser,
-    SeaplaneTender,
-    AircraftCarrier,
-    Submarine,
-    Battleship
-  ).zipWithIndex
-
-  implicit val ordering: Ordering[ShipCategory] = Ordering.by(order.getOrElse(_, Int.MaxValue))
-
-  def apply(shipType: String): ShipCategory = shipType match {
-    case "駆逐" => Destroyer
-    case "軽巡" => LightCruiser
-    case "重巡" => HeavyCruiser
-    case "水母" => SeaplaneTender
-    case "正母" => AircraftCarrier
-    case "軽母" => AircraftCarrier
-    case "潜水" => Submarine
-    case "戦艦" => Battleship
-  }
-
-  def get(index: Int): Option[ShipCategory] = order.find(_._2 == index).map(_._1)
-
-  def values: Seq[ShipCategory] = order.keys.toSeq
-}
+case class ShipDrops(
+  area: Area,
+  shipMap: ShipMap
+)
 
 sealed trait Mark
 object Mark {
@@ -103,15 +68,6 @@ sealed trait Area extends Ordered[Area] {
 
 trait Scraper {
   def scrape()(implicit browser: JsoupBrowser): Either[String, Seq[ShipDrops]]
-}
-object Scraper {
-  type ShipName = String
-  type ShipMap = TreeMap[ShipCategory, Seq[ShipName]]
-  object ShipMap {
-    def empty: ShipMap = TreeMap.empty[ShipCategory, Seq[ShipName]]
-    def apply(value: (ShipCategory, Seq[ShipName]) *): ShipMap = TreeMap(value: _*)
-  }
-  case class ShipDrops(area: Area, shipMap: ShipMap)
 }
 
 object DropListByCardScraper extends Scraper with LogSupport {
